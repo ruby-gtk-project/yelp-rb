@@ -25,6 +25,9 @@
           libadwaita
           harfbuzz
           librsvg
+          # webkit-web-process-extension's typelib — the WebView itself is
+          # also WebKitGTK, so this is the one WebKit package the stack needs.
+          webkitgtk_6_0
         ]
         # The Ruby `pkg-config` gem resolves `Requires.private` transitively and
         # hard-fails if any .pc in the chain is missing, so gtk4's whole private
@@ -89,11 +92,19 @@
           rsvg2 = rubyGnomeGem;
         };
 
+        # libxmlb's typelib lives in its `lib` output, not its default `out` —
+        # the README is explicit about this. It must be passed through as-is:
+        # folding it into the generic `.out` map below would send it straight
+        # back to the default output and the typelib would vanish from the
+        # search path, so it is kept out of `gtkStack` and listed separately.
+        libxmlbTypelib = pkgs.libxmlb.lib;
+
         # `makeSearchPath` would take each package's *first* output, and glib's
         # first output is `bin`, which carries no typelibs — hence the explicit
         # `.out`. at-spi2-core is here for the Atk typelib.
         typelibPath = pkgs.lib.makeSearchPath "lib/girepository-1.0"
-          (map (drv: drv.out or drv) (gtkStack ++ [ pkgs.at-spi2-core ]));
+          (map (drv: drv.out or drv) (gtkStack ++ [ pkgs.at-spi2-core ])
+            ++ [ libxmlbTypelib ]);
 
         # nix/ and not the repo root: the root Gemfile is kettle-jem's
         # development bundle — rubocop, rspec, yard, the kettle-dev stack — and
@@ -129,7 +140,7 @@
           # the wrapper never looks. The wrapper below is built by hand and
           # points at both the pre- and post-move paths.
           nativeBuildInputs = [ pkgs.makeWrapper ];
-          buildInputs = [ gems ] ++ gtkStack;
+          buildInputs = [ gems libxmlbTypelib ] ++ gtkStack;
 
           dontBuild = true;
 
@@ -201,6 +212,7 @@
             pkgs.xvfb-run
             pkgs.gsettings-desktop-schemas
             pkgs.adwaita-icon-theme
+            libxmlbTypelib
           ] ++ gtkStack;
 
           # Icons, GSettings schemas and the GTK portal all resolve through
@@ -212,7 +224,7 @@
             [ -d data/schemas ] && export GSETTINGS_SCHEMA_DIR="$PWD/data/schemas"
             unset BUNDLE_GEMFILE BUNDLE_FROZEN
             echo "yelp devshell — ruby $(ruby -e 'print RUBY_VERSION')"
-            echo "run the app:   xvfb-run ruby exe/yelp"
+            echo "run the app:   xvfb-run ruby exe/yelp-rb"
             echo "drive the app: xvfb-run ruby test/drive_*.rb"
             echo "run the specs: ruby -e 'require \"rspec/core\"; exit RSpec::Core::Runner.run([\"--format\", \"progress\", \"--require\", \"spec_helper\", \"spec\"])'"
           '';

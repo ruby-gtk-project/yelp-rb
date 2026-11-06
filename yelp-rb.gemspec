@@ -93,8 +93,21 @@ Gem::Specification.new do |spec|
   ]
   spec.bindir = "exe"
   # Listed files are the relative paths from bindir above.
-  spec.executables = ["yelp"]
+  spec.executables = ["yelp-rb"]
   spec.require_paths = ["lib"]
+
+  # Runtime toolkit. The gemspec had no runtime dependencies declared at all,
+  # which meant `gem install yelp-rb` produced an app that could not load its
+  # own toolkit.
+  spec.add_dependency("gtk4")
+  spec.add_dependency("adwaita")
+  spec.add_dependency("glib2")
+  # Xmlb — queries the binary XML blobs AppStream/Mallard-style metadata is
+  # compiled into (libyelp's document backends use this format).
+  spec.add_dependency("libxmlb")
+  # WebKitWebProcessExtension — the web-process-side API libyelp's
+  # web-process-extension binds to.
+  spec.add_dependency("webkit-web-process-extension")
 
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.

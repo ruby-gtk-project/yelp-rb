@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Entry point for the Ruby port of Yelp.
+#
+# Ported from upstream's src/yelp.c: build the application and run it with
+# the process's own argv, so Gio::Application's own command-line handling
+# (which this port's Application does not override) sees it.
+#
+# Upstream's `-e, --editor-mode` switch (yelp_application_cmdline's
+# GOptionEntry table) has no effect on anything this port has built yet —
+# editor mode changes how libyelp's document pipeline renders a page, which
+# is a separate porting track — so it is not accepted here. `--version` is,
+# since it needs nothing but the gem's own version constant.
+
+require "yelp"
+require_relative "../lib/yelp/rb/version"
+
+if ARGV.include?("--version")
+  puts "yelp-rb #{Yelp::Rb::VERSION}"
+  exit(0)
+end
+
+Application.new.run

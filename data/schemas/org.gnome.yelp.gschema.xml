@@ -1,0 +1,31 @@
+<schemalist>
+<schema id="org.gnome.yelp" path="/org/gnome/yelp/">
+  <key name="show-cursor" type="b">
+    <default>false</default>
+  </key>
+  <key name="zoom-level" type="d">
+    <range min="0.5" max="4.0"/>
+    <default>1.0</default>
+  </key>
+</schema>
+<!--
+  Upstream's org.gnome.yelp.documents has no `path` attribute: it is
+  relocatable, and yelp_application_get_doc_settings instantiates one
+  GSettings per document URI with g_settings_new_full against a per-URI path
+  under a GKeyFileSettingsBackend. The Ruby gio2 binding has no
+  g_settings_new_full / g_settings_new_with_path wrapper, so this port fixes
+  a single path instead and shares one geometry/bookmarks/readlater set
+  across every document rather than keying it per document URI.
+-->
+<schema id="org.gnome.yelp.documents" path="/org/gnome/yelp/documents/">
+  <key name="geometry" type="(ii)">
+    <default>(960,630)</default>
+  </key>
+  <key name="bookmarks" type="a(sss)">
+    <default>[]</default>
+  </key>
+  <key name="readlater" type="a(ss)">
+    <default>[]</default>
+  </key>
+</schema>
+</schemalist>
