@@ -102,6 +102,10 @@ Gem::Specification.new do |spec|
   spec.add_dependency("gtk4")
   spec.add_dependency("adwaita")
   spec.add_dependency("glib2")
+  # gio2: lib/settings.rb requires it directly for Gio::Settings. It comes
+  # in transitively through gtk4 regardless, but it is a binding this port's
+  # own code calls by name, so it is declared rather than left implicit.
+  spec.add_dependency("gio2")
   # NOTE on libxmlb: a prior pass declared `libxmlb` here with a comment
   # claiming libyelp's document backends compile Mallard/AppStream metadata
   # into Xmlb's binary blob format. That is false: upstream's meson.build
