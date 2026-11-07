@@ -1,7 +1,9 @@
 # yelp — upstream component inventory
 
 Upstream ref: `origin/master` (the fork has no `origin/main`), at `ee532821`.
-Port branch: `ruby`, currently the untouched scaffold.
+Port branch: `ruby`. Re-surveyed after the application shell and window chrome
+landed; see "Port status" at the bottom for exactly what exists and what does
+not.
 
 Yelp is a WebKit-based help browser. Its UI surface is small — one window, one
 embedded web view, a search entry with a completion popover, a bookmark
@@ -10,11 +12,12 @@ the non-UI document pipeline (`libyelp/yelp-*-document.c`, the XSLT
 transformer, the URI parser, the decompressors, the SQLite cache). Those are
 backend units, not components, and are listed separately at the bottom.
 
-`lib/` on `ruby` today: `lib/yelp.rb`, `lib/yelp/application.rb` (the scaffold's
-"port not written yet" status page), `lib/yelp/rb/version.rb`. **No real
-component exists yet.** Following the pilot port, real components go in flat
-`lib/*.rb` with top-level classes; `lib/yelp/application.rb` stays as the
-gem-facing shim and `lib/main.rb` becomes the application class.
+`lib/` on `ruby` today: `lib/yelp.rb` (one `require_relative "main"`),
+`lib/main.rb` (the application class), `lib/window.rb`, `lib/settings.rb`,
+`lib/about_dialog.rb`, `lib/primary_menu.rb`, `lib/bookmark_popover.rb`,
+`lib/bookmark_row.rb`, `lib/search_result.rb`, `lib/yelp/rb/version.rb`. Each
+section below says, in its "Status" line, which of these cover it and which
+have nothing yet.
 
 ## src/yelp-application.c — the application object: actions, accelerators, settings, window registry
 
@@ -46,12 +49,22 @@ enable/disable on zoom level.
 
 → `lib/main.rb`
 
+**Status: present.** `lib/main.rb` builds the `Gtk::Application`, installs the
+four `app.yelp-application-*` actions with their accelerators, and
+`lib/settings.rb` backs `zoom-level`/`show-cursor` with `Gio::Settings`.
+**Missing:** the window registry (`windows_by_document`), the `--editor-mode`
+option, the `GKeyfileSettingsBackend` for per-document settings, and the
+`YelpBookmarks` interface (bookmarks/read-later, `bookmarks-changed`) — none
+of this is in `lib/` yet.
+
 ## src/yelp.c — the process entry point
 
 Four lines of substance: construct the application, `g_application_run`.
 
 → folds into `lib/main.rb` (the house style's one-expression launcher) and
 `exe/yelp-rb`.
+
+**Status: present.** `lib/yelp.rb` requires `lib/main.rb`; `exe/yelp-rb` exists.
 
 ## src/yelp-window.c + src/yelp-window.ui — the main window
 
@@ -91,7 +104,20 @@ after `<Control>L`.
 
 → `lib/window.rb`
 
-### src/yelp-window.ui `primary-menu` + `primary_popover_menu` — the primary menu
+**Status: mostly present.** `lib/window.rb` (364 lines) builds the
+`Adw.ApplicationWindow`, the breakpoint, the toolbar view, header bar, title,
+back/forward buttons (header and bottom), the menu button + primary menu, the
+search toggle button, the bookmark menu button, the find revealer/entry/
+prev/next/close buttons, the bottom action bar, and the window actions
+(`win.yelp-window-new`, `-close`, `-search`, `-find`, `-go-all`,
+`win.yelp-show-about-dialog`). **Missing:** the real `YelpSearchEntry` (the
+window's own code says this explicitly — "YelpSearchEntry (lib/search_entry.rb)
+is a separate porting track"), the `YelpView`/`WebKit.WebView` itself (the
+view overlay holds only the find bar, not a real view — window.rb's own
+comment: "without one yet, this holds the one real thing the window [has]"),
+`ctrll_entry` (`<Control>L`), the `Gtk.DropTarget` and `Gtk.GestureClick`
+(mouse-button back/forward) controllers, and geometry persistence to
+`org.gnome.yelp.documents geometry`. + `primary_popover_menu` — the primary menu
 
 `Gtk.PopoverMenu` over a `Gio.Menu` of five sections, 7 items:
 `_("New Window")` → `win.yelp-window-new`, `_("Find in Page…")` →
@@ -111,6 +137,11 @@ The `zoom-controls` custom slot is its own component: a homogeneous horizontal
 
 → `lib/primary_menu.rb` (menu model + the zoom-controls widget)
 
+**Status: present.** `lib/primary_menu.rb` (135 lines) builds the menu model
+and the zoom-controls box (shrink/reset/enlarge buttons bound to the
+`app.yelp-application-*-text` actions, with a label kept in sync via
+`refresh_zoom_labels`).
+
 ### src/yelp-window.ui `bookmark_menu` + `window_set_bookmarks` — the bookmarks popover
 
 | Widget | × | CSS | Signals | Notes |
@@ -129,6 +160,13 @@ Empty state: the list box is simply empty — upstream has no placeholder.
 
 → `lib/bookmark_popover.rb` + `lib/bookmark_row.rb`
 
+**Status: present.** `lib/bookmark_popover.rb` (127 lines) builds the popover,
+box, scrolled window, list box and add/remove buttons; `lib/bookmark_row.rb`
+(58 lines) is the per-row model/widget. Not re-verified in this pass against
+the `org.gnome.yelp.documents` `bookmarks`/`readlater` schema wiring —
+`component-parity` should confirm the row data actually comes from
+`Gio::Settings` rather than a stub list.
+
 ### src/yelp-window.c `present_about_dialog` — the about dialog
 
 `adw_show_about_dialog`: application-name `_("Help")`, application-icon
@@ -137,6 +175,12 @@ GPL-2.0, developer-name `_("The GNOME Project")`, a six-name developers list,
 version, `_("translator-credits")`.
 
 → `lib/about_dialog.rb`
+
+**Status: present.** `lib/about_dialog.rb` (34 lines) matches upstream field
+for field: application name/icon, website, issue URL, GPL-2.0, developer
+name, the six-name developers list, and a version passed in. Not yet marked
+for translation (no `_()`/gettext call) and `_("translator-credits")` is not
+wired — tracked under translation-parity, not here.
 
 ## src/yelp-search-entry.c + src/yelp-search-entry.ui — the search entry and its completion popover
 
@@ -168,12 +212,22 @@ read-later entries via the `YelpBookmarks` interface, refreshing on
 
 → `lib/search_entry.rb` + `lib/search_result_row.rb`
 
+**Status: missing entirely.** Neither `lib/search_entry.rb` nor
+`lib/search_result_row.rb` exists. `lib/window.rb`'s own comment names this
+as a separate porting track; the window's search button/search bar exist but
+there is no real entry, completion popover, model stack or row factory
+plugged into them yet.
+
 ## src/yelp-search-result.c — the completion row model object
 
 A plain `GObject` with `icon`, `title`, `desc`, `uri`, `flags` properties and a
 `YelpSearchResultFlags` enum (bookmarked / read-later). No widgets.
 
 → `lib/search_result.rb`
+
+**Status: present.** `lib/search_result.rb` (55 lines) is the plain
+icon/title/desc/uri/flags model with the bookmarked/read-later flags. Has no
+consumer yet (see search-entry status above).
 
 ## libyelp/yelp-view.c + libyelp/yelp-view.h — the help view
 
@@ -210,6 +264,14 @@ could not be parsed.")`, and the
 
 → `lib/view.rb` + `lib/view_context_menu.rb` + `lib/error_page.rb`
 
+**Status: missing entirely.** None of `lib/view.rb`, `lib/view_context_menu.rb`
+or `lib/error_page.rb` exists. This is the app's central component — the
+actual `WebKit.WebView` — and the window currently has nothing in its view
+overlay but the find bar (window.rb's own comment: "without one yet, this
+holds the one real thing the window [has]"). The `win.yelp-view-*` actions
+(print, go-back/-forward/-previous/-next) that `lib/window.rb` wires
+accelerators for have no implementation to enable/disable against.
+
 ## src/resources/error.html — the in-page error template
 
 Standalone HTML/CSS with Adwaita light and dark custom properties, a
@@ -217,6 +279,8 @@ Standalone HTML/CSS with Adwaita light and dark custom properties, a
 but it is the app's error state and has to ship with the port.
 
 → `lib/resources/error.html` (verbatim asset, loaded by `lib/error_page.rb`)
+
+**Status: missing.** `lib/resources/` does not exist.
 
 ## src/style.css — the app stylesheet
 
@@ -227,6 +291,12 @@ Three rules: `.yelp-find-frame` (headerbar colours, 6px padding, bottom-rounded
 
 → `lib/style.css` (loaded through a `Gtk::CssProvider` in `lib/main.rb`)
 
+**Status: missing.** `lib/window.rb` already applies the `yelp-find-frame`
+class to the find-bar box (plus `flat` on its three buttons), but there is no
+`lib/style.css` and no `Gtk::CssProvider` registration in `lib/main.rb` to
+define `.yelp-find-frame` or `.yelp-bookmark-menu row` — the class is applied
+and does nothing yet.
+
 ## libyelp/yelp-settings.c — the appearance/behaviour settings object
 
 Not a widget and upstream has no preferences dialog, but it drives user-visible
@@ -236,6 +306,12 @@ desktop settings, editor mode, and the colour/icon palette handed to the XSLT.
 
 → `lib/settings.rb`
 
+**Status: present for zoom/cursor.** `lib/settings.rb` (79 lines) wraps
+`Gio::Settings` for `zoom-level` (clamped 0.5–4.0) and `show-cursor`.
+**Missing:** font families/sizes derived from GNOME desktop settings, editor
+mode, and the colour/icon palette for the XSLT — none of these are reachable
+yet since there is no XSLT pipeline or view to hand them to.
+
 ## data/org.gnome.yelp.gschema.xml — GSettings schemas
 
 `org.gnome.yelp`: `show-cursor` (b, false), `zoom-level` (d, 0.5–4.0, 1.0).
@@ -243,6 +319,12 @@ desktop settings, editor mode, and the colour/icon palette handed to the XSLT.
 `geometry` ((ii), (960,630)), `bookmarks` (a(sss)), `readlater` (a(ss)).
 
 → `lib/settings.rb` (the port reads these through `Gio::Settings`)
+
+**Status: present.** `data/schemas/org.gnome.yelp.gschema.xml` is already
+carried over verbatim, and `lib/settings.rb` reads `show-cursor`/`zoom-level`
+from it. The `org.gnome.yelp.documents` relocatable schema (`geometry`,
+`bookmarks`, `readlater`) is in the same file but nothing in `lib/` reads it
+yet — window geometry persistence and the bookmarks list are not wired to it.
 
 ## src/yelp.gresource.xml — the resource manifest
 
@@ -254,6 +336,9 @@ and the twelve icons.
 
 → `lib/resources/` (icons + `error.html`), no GResource equivalent
 
+**Status: missing.** No icons and no `error.html` have been carried over into
+`lib/resources/` (which does not exist).
+
 ## po/ — the translation catalogue
 
 `po/LINGUAS` lists 109 languages with 109 matching `.po` files; the template is
@@ -263,6 +348,13 @@ domains. Nothing in `lib/` is translated yet; the port needs a gettext path
 before the strings above are worth marking.
 
 → `po/` (carried over wholesale once the components exist)
+
+**Status: missing.** No `po/` directory exists on `ruby` yet, and nothing in
+`lib/` marks its strings for translation (`lib/about_dialog.rb`'s six
+developer names and dialog fields, `lib/primary_menu.rb`'s menu item labels,
+`lib/window.rb`'s tooltips and placeholders, and `lib/bookmark_popover.rb`'s
+button labels are all plain Ruby string literals). This is the
+`translation-parity` skill's job, not re-litigated here.
 
 ## Backend units — not components, but the view has nothing to show without them
 
@@ -283,33 +375,55 @@ These are a separate porting track from the component list above.
 
 ## Port status
 
-Every component in this document is **missing**. `lib/` holds only the
-scaffold: `lib/yelp.rb` (one `require_relative`), `lib/yelp/application.rb`
-(the placeholder `Adwaita::StatusPage` reading "The Ruby port has not been
-written yet"), and `lib/yelp/rb/version.rb`.
+No longer the untouched scaffold. What exists in `lib/` now, file by file:
 
-## Blockers worth naming before any widget code is written
+| File | Lines | Covers | Status |
+|---|---:|---|---|
+| `lib/yelp.rb` | 3 | entry require | done |
+| `lib/main.rb` | 131 | `Gtk::Application`, the four `app.yelp-application-*` actions + accelerators, `refresh_zoom_labels` | present; window registry, `--editor-mode`, per-document `GKeyfileSettingsBackend`, `YelpBookmarks` interface not started |
+| `lib/settings.rb` | 79 | `zoom-level`, `show-cursor` via `Gio::Settings` | present for those two keys; fonts/editor-mode/XSLT palette not started |
+| `lib/window.rb` | 364 | window chrome, breakpoint, header bar, title, back/forward (header + bottom), menu button, search toggle, bookmark menu button, find revealer/entry/buttons, bottom action bar, `win.yelp-window-*` actions | present for chrome; no real search entry, no view, no `ctrll_entry`, no drop target, no button-press controller, no geometry persistence |
+| `lib/primary_menu.rb` | 135 | menu model, zoom-controls box | done |
+| `lib/about_dialog.rb` | 34 | the about dialog, all fields | done (translation marking pending) |
+| `lib/bookmark_popover.rb` | 127 | popover, list, add/remove buttons | present; not yet confirmed wired to the `org.gnome.yelp.documents` schema rather than a stub |
+| `lib/bookmark_row.rb` | 58 | per-row bookmark model/widget | done |
+| `lib/search_result.rb` | 55 | completion-row model (icon/title/desc/uri/flags) | done; has no consumer |
+| `lib/yelp/rb/version.rb` | — | gem version | done |
+
+**Missing entirely** — no file exists for any of these:
+- `lib/search_entry.rb` + `lib/search_result_row.rb` (the real `YelpSearchEntry`, completion popover, model stack, row factory)
+- `lib/view.rb` + `lib/view_context_menu.rb` + `lib/error_page.rb` (the `WebKit.WebView`, print, context menu, error states) — this is the app's central component and the window currently has nothing real in its view area
+- `lib/resources/` (icons, `error.html`)
+- `lib/style.css` + its `Gtk::CssProvider` registration (the `yelp-find-frame` class is already applied in `lib/window.rb` with nothing to define it)
+- `po/` and any translation marking on the strings already written
+- The entire backend porting track: URI parsing, the document backends, the XSLT transformer, the man/info parsers, the SQLite search index, the decompressors, the bookmarks interface, the web-process extension
+
+## Blockers worth naming before the remaining widget code is written
 
 - **WebKitGTK 6 Ruby bindings.** `YelpView` *is* a `WebKitWebView`, and the
   whole app is a frame around it. Whether the fork's dev shell exposes usable
   `webkit2gtk-6.0` bindings to Ruby decides the shape of `lib/view.rb`. The
   `webkit-web-process-extension` gem (see `libyelp/web-process-extension/`
-  above) is the released binding for the companion process extension and
-  must be wired into the gemspec/Gemfile before that file is ported, not
-  reimplemented by hand.
+  above) is the released binding for the companion process extension; it and
+  `libxmlb` are now declared in `yelp-rb.gemspec` and `nix/Gemfile`
+  (confirmed by reading both files directly), so the remaining risk is
+  proving at runtime that `WebKitWebProcessExtension` actually exposes a
+  usable `WebKit.WebView` for `lib/view.rb` to subclass, not whether the gem
+  is wired in.
 - **libxml2/libxslt from Ruby** for the DocBook/Mallard/man/info → HTML
   pipeline, plus the `help:` custom URI scheme handler. `libxmlb`'s `Xmlb`
   gem is a binary-XML cache reader, not a general XSLT engine, so it does not
   cover this pipeline by itself — confirm what it does and does not reach
   before assuming it closes this gap.
 - `Adwaita::ApplicationWindow` is usable in the bindings but
-  `Adwaita::Application` is not, so the application object must be
-  `Gtk::Application` — the port's scaffold already does this.
+  `Adwaita::Application` is not, so the application object is
+  `Gtk::Application` — `lib/main.rb` already does this.
 - `Gtk::BuilderListItemFactory` drives the completion rows upstream; the port
   has no `.ui`, so those rows must be rebuilt as a
-  `Gtk::SignalListItemFactory`.
-- `Adw.Breakpoint` setters are declarative upstream; in Ruby they need
-  `Adwaita::BreakpointCondition.parse` plus `add_setter` calls, which the
-  bindings may or may not expose.
+  `Gtk::SignalListItemFactory` once `lib/search_entry.rb` is written.
+- `Adw.Breakpoint` setters are declarative upstream; `lib/window.rb` already
+  has to build the breakpoint and its setters in Ruby — confirm against the
+  `ruby-gtk` skill that the setter calls it uses are the supported shape.
 - The upstream ref is `origin/master`; the task text named `origin/main`, which
-  does not exist in this fork.
+  does not exist in this fork (only `origin/main` as a stale local-only ref
+  resolving to the same commit — the remote has no `main` branch).
