@@ -12,7 +12,14 @@
 # `webkit_web_view_load_html`. This port has no WebView to hand HTML to yet
 # (lib/view.rb is a separate porting track — the fleet's released bindings
 # cover `WebKitWebProcessExtension`, the companion process-extension API,
-# not a `WebKit.WebView` widget itself), so `ErrorPage` stops at producing
+# not a `WebKit.WebView` widget itself — and per that gem's own README,
+# `WebKitWebProcessExtension` cannot be *driven* from this process even once
+# required: the real extension is a shared library WebKit dlopens inside its
+# own separate web-process executable, and a Ruby gem running in the
+# application process cannot be that .so. `WebProcessExtension#signal_connect`
+# attaches without error, but no WebPage is ever created in this process to
+# fire it. See yelp-rb.gemspec's dependency comment for the full note), so
+# `ErrorPage` stops at producing
 # the same HTML string upstream would load, from the same template asset
 # (lib/resources/error.html, carried over verbatim except for upstream's
 # printf placeholders, which are named `{{...}}` markers here since this

@@ -92,19 +92,20 @@
           rsvg2 = rubyGnomeGem;
         };
 
-        # libxmlb's typelib lives in its `lib` output, not its default `out` —
-        # the README is explicit about this. It must be passed through as-is:
-        # folding it into the generic `.out` map below would send it straight
-        # back to the default output and the typelib would vanish from the
-        # search path, so it is kept out of `gtkStack` and listed separately.
-        libxmlbTypelib = pkgs.libxmlb.lib;
-
         # `makeSearchPath` would take each package's *first* output, and glib's
         # first output is `bin`, which carries no typelibs — hence the explicit
         # `.out`. at-spi2-core is here for the Atk typelib.
+        #
+        # NOTE: this list no longer carries a libxmlb typelib. A prior pass
+        # declared the `libxmlb` gem in the gemspec on the claim that
+        # libyelp's document backends compile Mallard/AppStream metadata into
+        # Xmlb's binary blob format; upstream's meson.build shows that is
+        # false (it depends on libxml-2.0 / libxslt, never libxmlb, and no
+        # Xmlb::* namespace is used anywhere in the C sources). The gemspec
+        # dependency was removed rather than wired to a feature that does not
+        # exist, so there is nothing here for it to provide a typelib for.
         typelibPath = pkgs.lib.makeSearchPath "lib/girepository-1.0"
-          (map (drv: drv.out or drv) (gtkStack ++ [ pkgs.at-spi2-core ])
-            ++ [ libxmlbTypelib ]);
+          (map (drv: drv.out or drv) (gtkStack ++ [ pkgs.at-spi2-core ]));
 
         # nix/ and not the repo root: the root Gemfile is kettle-jem's
         # development bundle — rubocop, rspec, yard, the kettle-dev stack — and
@@ -140,7 +141,7 @@
           # the wrapper never looks. The wrapper below is built by hand and
           # points at both the pre- and post-move paths.
           nativeBuildInputs = [ pkgs.makeWrapper ];
-          buildInputs = [ gems libxmlbTypelib ] ++ gtkStack;
+          buildInputs = [ gems ] ++ gtkStack;
 
           dontBuild = true;
 
@@ -212,7 +213,6 @@
             pkgs.xvfb-run
             pkgs.gsettings-desktop-schemas
             pkgs.adwaita-icon-theme
-            libxmlbTypelib
           ] ++ gtkStack;
 
           # Icons, GSettings schemas and the GTK portal all resolve through

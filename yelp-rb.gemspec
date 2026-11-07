@@ -102,11 +102,30 @@ Gem::Specification.new do |spec|
   spec.add_dependency("gtk4")
   spec.add_dependency("adwaita")
   spec.add_dependency("glib2")
-  # Xmlb — queries the binary XML blobs AppStream/Mallard-style metadata is
-  # compiled into (libyelp's document backends use this format).
-  spec.add_dependency("libxmlb")
+  # NOTE on libxmlb: a prior pass declared `libxmlb` here with a comment
+  # claiming libyelp's document backends compile Mallard/AppStream metadata
+  # into Xmlb's binary blob format. That is false: upstream's meson.build
+  # depends on libxml-2.0 and libxslt (plain-text XML + XSLT, the actual
+  # Mallard/DocBook pipeline), never on libxmlb, and `git grep -i xmlb` over
+  # upstream turns up nothing but an unrelated `xmlChar *xmlbuf` variable
+  # name in yelp-info-parser.c. No namespace this gem binds (Xmlb::Silo,
+  # Xmlb::Builder, ...) is used anywhere upstream, so the dependency was
+  # removed rather than wired up to a feature that does not exist.
+  #
   # WebKitWebProcessExtension — the web-process-side API libyelp's
-  # web-process-extension binds to.
+  # web-process-extension (libyelp/web-process-extension/yelp-web-process-extension.c)
+  # binds to: upstream's meson.build depends on
+  # `webkitgtk-web-process-extension-6.0` for exactly this. The namespace
+  # loads (WebKitWebProcessExtension::WebProcessExtension, ::WebPage, ...),
+  # but per this gem's own README it cannot actually be *driven* from this
+  # process: the real extension is a shared library WebKit dlopens inside
+  # its own separate web-process executable, and a Ruby gem running in the
+  # application process cannot be that .so. `WebProcessExtension#signal_connect('page-created')`
+  # connects without error, but no WebPage is ever created in this process to
+  # fire it, so no lib/ code can call it to any effect. Kept declared
+  # because upstream genuinely has this feature; see
+  # lib/error_page.rb for where the port's web/view backend documents this
+  # same gap.
   spec.add_dependency("webkit-web-process-extension")
 
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased

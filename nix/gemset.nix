@@ -161,17 +161,6 @@
     };
     version = "3.1.0";
   };
-  libxmlb = {
-    dependencies = ["gem_kit" "gobject-introspection"];
-    groups = ["default"];
-    platforms = [];
-    source = {
-      remotes = ["https://rubygems.org"];
-      sha256 = "0224q37gi027s7fz436hl5lzcnjcpy90mpzhgcqffdd3bj2czmcm";
-      type = "gem";
-    };
-    version = "1.0.0";
-  };
   matrix = {
     groups = ["default"];
     platforms = [];
