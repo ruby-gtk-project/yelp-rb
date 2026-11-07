@@ -12,11 +12,34 @@ $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
 require_relative 'gtk_driver'
 require 'main'
+require 'error_page'
 
 GtkDriver.drive(Application.new, shots: 'tmp/shots') do |d, app|
   d.window { app.windows.first }
 
   original_window = nil
+
+  d.step('ErrorPage renders the three error kinds') do
+    d.check('not found') { ErrorPage.new(message: 'x', code: ErrorPage::NOT_FOUND).html.include?('Page Not Found') }
+    d.check('cant read') { ErrorPage.new(message: 'x', code: ErrorPage::CANT_READ).html.include?('Cannot Read') }
+    d.check('unknown') { ErrorPage.new(message: 'x', code: ErrorPage::UNKNOWN).html.include?('Unknown Error') }
+  end
+
+  d.step('ErrorPage document-not-found adds the recovery link') do
+    page = ErrorPage.new(
+      message: 'missing', code: ErrorPage::NOT_FOUND,
+      document_not_found: true, uri: 'help:gnome-help/foo',
+    )
+    d.check('title swaps to Document Not Found') { page.title == 'Document Not Found' }
+    d.check('recovery link present') { page.html.include?('install-help:gnome-help/foo') }
+    d.check('message escaped into the page') { page.html.include?('<p>missing</p>') }
+  end
+
+  d.step('ErrorPage escapes HTML-unsafe messages') do
+    page = ErrorPage.new(message: %(<script>&"'</script>))
+    d.check('message is escaped, not raw') { page.html.include?('&lt;script&gt;&amp;&quot;') }
+    d.check('no recovery link without document_not_found') { !page.html.include?('install-') }
+  end
 
   d.step('window opens') do
     d.check('one window') { app.windows.size == 1 }
@@ -181,6 +204,112 @@ GtkDriver.drive(Application.new, shots: 'tmp/shots') do |d, app|
   d.step('find bar is hidden again') do
     window = app.windows.first
     d.check('find bar not revealed') { window.find_bar.reveal_child? == false }
+  end
+
+  d.step('seed a bookmark so the search completions have something to match') do
+    window = app.windows.first
+    window.send(:bookmark_added)
+  end
+
+  d.step('open search mode from the header toggle button') do
+    window = app.windows.first
+    window.search_button.active = true
+  end
+
+  d.step('search mode swapped the header title widget to the search entry') do
+    window = app.windows.first
+    d.check('title widget is the search entry clamp') do
+      window.header_bar.title_widget.equal?(window.send(:search_entry_clamp))
+    end
+    d.shot('05b-search-mode')
+  end
+
+  d.step('type a query that matches the seeded bookmark') do
+    window = app.windows.first
+    window.search_entry.entry.text = window.current_uri
+  end
+
+  d.step('the completion popover shows the match') do
+    window = app.windows.first
+    d.check('popover is visible') { window.search_entry.popover.visible? }
+    d.check('search-all row mentions the typed query') do
+      window.search_entry.search_all_label.label.include?(window.current_uri)
+    end
+    d.check('one completion in the sliced model') { window.search_entry.send(:sliced_model).n_items == 1 }
+    d.shot('05c-search-completions')
+  end
+
+  d.step('press Down to select the first completion row') do
+    window = app.windows.first
+    window.search_entry.send(:key_controller).signal_emit('key-pressed', Gdk::Keyval::KEY_Down, 0, 0)
+  end
+
+  d.step('the first row is now selected') do
+    window = app.windows.first
+    d.check('selection moved to index 0') { window.search_entry.send(:selection_model).selected.zero? }
+  end
+
+  d.step('press Escape once to close the popover without leaving search mode') do
+    window = app.windows.first
+    window.search_entry.send(:key_controller).signal_emit('key-pressed', Gdk::Keyval::KEY_Escape, 0, 0)
+  end
+
+  d.step('popover closed, search mode still active') do
+    window = app.windows.first
+    d.check('popover popped down') { !window.search_entry.popover.visible? }
+    d.check('search button still active') { window.search_button.active? }
+  end
+
+  d.step('press Escape again to leave search mode entirely') do
+    window = app.windows.first
+    window.search_entry.send(:key_controller).signal_emit('key-pressed', Gdk::Keyval::KEY_Escape, 0, 0)
+  end
+
+  d.step('search mode closed by the second Escape') do
+    window = app.windows.first
+    d.check('search button deactivated') { !window.search_button.active? }
+    d.check('title widget restored') { window.header_bar.title_widget.equal?(window.header_title) }
+  end
+
+  d.step('reopen search, select the row and activate it') do
+    window = app.windows.first
+    window.search_button.active = true
+    window.search_entry.entry.text = window.current_uri
+    window.search_entry.send(:key_controller).signal_emit('key-pressed', Gdk::Keyval::KEY_Down, 0, 0)
+    window.search_entry.send(:entry_activate)
+  end
+
+  d.step('activating the selected completion loaded its page and left search mode') do
+    window = app.windows.first
+    d.check('search button deactivated') { !window.search_button.active? }
+    d.check('title widget restored') { window.header_bar.title_widget.equal?(window.header_title) }
+    d.check('popover popped down') { !window.search_entry.popover.visible? }
+  end
+
+  d.step('open search again, clear the query and use the standing "search for" row') do
+    window = app.windows.first
+    window.search_button.active = true
+    window.search_entry.entry.text = 'help:gnome-help/accessibility'
+    window.search_entry.send(:selection_model).unselect_item(0) if window.search_entry.send(:sliced_model).n_items.positive?
+    window.search_entry.send(:search_all_row).activate
+  end
+
+  d.step('the search-for-everything row loaded the typed query and left search mode') do
+    window = app.windows.first
+    d.check('current_uri updated to the typed query') { window.current_uri == 'help:gnome-help/accessibility' }
+    d.check('search button deactivated') { !window.search_button.active? }
+    d.check('title widget restored') { window.header_bar.title_widget.equal?(window.header_title) }
+  end
+
+  d.step('clean up the seeded bookmark') do
+    window = app.windows.first
+    bookmark = window.instance_variable_get(:@bookmarks).first
+    window.send(:bookmark_removed, bookmark)
+  end
+
+  d.step('bookmarks are empty again after cleanup') do
+    window = app.windows.first
+    d.check('no bookmarks left') { window.instance_variable_get(:@bookmarks).empty? }
   end
 
   d.step('open the About dialog from the window action') do
