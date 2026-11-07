@@ -94,19 +94,38 @@ class Application < Gtk::Application
 
     def larger_text_action
       @larger_text_action ||= Gio::SimpleAction.new('yelp-application-larger-text', nil).tap do |action|
-        action.signal_connect('activate') { Settings.default.zoom_level += 0.1 }
+        action.signal_connect('activate') do
+          Settings.default.zoom_level += 0.1
+          refresh_zoom_labels
+        end
       end
     end
 
     def smaller_text_action
       @smaller_text_action ||= Gio::SimpleAction.new('yelp-application-smaller-text', nil).tap do |action|
-        action.signal_connect('activate') { Settings.default.zoom_level -= 0.1 }
+        action.signal_connect('activate') do
+          Settings.default.zoom_level -= 0.1
+          refresh_zoom_labels
+        end
       end
     end
 
     def reset_text_size_action
       @reset_text_size_action ||= Gio::SimpleAction.new('yelp-application-reset-text-size', nil).tap do |action|
-        action.signal_connect('activate') { Settings.default.zoom_level = 1.0 }
+        action.signal_connect('activate') do
+          Settings.default.zoom_level = 1.0
+          refresh_zoom_labels
+        end
       end
+    end
+
+    # The zoom-controls row each window's PrimaryMenu holds is a plain
+    # Gtk::Label, not something bound live to the `zoom-level` GSettings key
+    # (see lib/primary_menu.rb's `refresh`), so every action above that
+    # changes `Settings.default.zoom_level` has to tell every open window's
+    # menu to re-read it — mirroring upstream's views, which all watch the
+    # same `YelpSettings` singleton and redraw on its "zoom-level" notify.
+    def refresh_zoom_labels
+      windows.each { |window| window.primary_menu.refresh }
     end
 end
