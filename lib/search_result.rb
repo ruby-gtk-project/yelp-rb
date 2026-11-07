@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'glib2'
+
 # SearchResult is one row of the search completion list: a page the user can
 # jump to, with the text the completion view shows for it.
 #
@@ -13,7 +15,11 @@
 # the first bit set runs a full search instead of opening `page` directly, and
 # the second bit marks a result that is already bookmarked.
 #
-class SearchResult
+#
+# A GLib::Object (not a plain Ruby object), because the completion view
+# (lib/search_entry.rb) holds rows in a Gio::ListStore, and GListModel
+# storage requires GObject-derived items.
+class SearchResult < GLib::Object
   FLAG_ACTIVATE_SEARCH = 1 << 0
   FLAG_BOOKMARKED = 1 << 1
 
@@ -21,6 +27,7 @@ class SearchResult
   attr_reader :title, :desc
 
   def initialize(title: nil, desc: nil, icon: nil, page: nil, flags: 0, keywords: nil)
+    super()
     self.title = title
     self.desc = desc
     @icon = icon

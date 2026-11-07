@@ -40,9 +40,11 @@ class Application < Gtk::Application
     'win.yelp-window-close'             => ['<Control>w'],
   }.freeze
 
+  STYLESHEET_PATH = File.join(__dir__, 'style.css')
+
   def initialize
     super(APP_ID, :default_flags)
-    signal_connect('startup') { install_accels }
+    signal_connect('startup') { startup }
     signal_connect('activate') { new_window }
   end
 
@@ -60,6 +62,29 @@ class Application < Gtk::Application
   end
 
   private
+
+    # Ported from yelp_application_startup, minus the parts of upstream's
+    # startup that belong to backend porting tracks not written yet
+    # (the per-document GKeyfileSettingsBackend, the YelpBookmarks DBus
+    # interface). Registering src/style.css as a Gtk::CssProvider is the
+    # one piece of upstream's startup this port's chrome already depends
+    # on: lib/window.rb applies the `yelp-find-frame` class it defines.
+    # 600 is GTK_STYLE_PROVIDER_PRIORITY_APPLICATION; the Ruby bindings do
+    # not expose it as a constant, so it is passed as the literal GTK uses.
+    STYLE_PROVIDER_PRIORITY_APPLICATION = 600
+
+    def startup
+      install_accels
+      Gtk::StyleContext.add_provider_for_display(
+        Gdk::Display.default,
+        stylesheet,
+        STYLE_PROVIDER_PRIORITY_APPLICATION,
+      )
+    end
+
+    def stylesheet
+      @stylesheet ||= Gtk::CssProvider.new.tap { |provider| provider.load_from_path(STYLESHEET_PATH) }
+    end
 
     def install_accels
       install_actions

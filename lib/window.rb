@@ -5,6 +5,8 @@ require 'adwaita'
 require_relative 'about_dialog'
 require_relative 'bookmark_popover'
 require_relative 'primary_menu'
+require_relative 'search_entry'
+require_relative 'search_result'
 require_relative 'settings'
 require_relative 'yelp/rb/version'
 
@@ -114,10 +116,28 @@ class Window < Adwaita::ApplicationWindow
     @search_button ||= Gtk::ToggleButton.new.tap do |button|
       button.icon_name = 'edit-find-symbolic'
       button.tooltip_text = 'Search (Ctrl+S)'
-      # YelpSearchEntry (lib/search_entry.rb) is a separate porting track —
-      # the toggle exists because upstream's header does, but it has no
-      # completion view to show yet.
-      button.sensitive = false
+      button.signal_connect('toggled') { set_search_mode(button.active?) }
+    end
+  end
+
+  # The real YelpSearchEntry: upstream swaps it into the header's title
+  # widget slot while the search toggle is active (`search_bar` in
+  # src/yelp-window.ui is bound bidirectionally to the toggle's state and
+  # becomes the header's key-capture widget), inside an `Adw.Clamp` capped
+  # at 425px.
+  def search_entry
+    @search_entry ||= SearchEntry.new(
+      results:       bookmark_search_results,
+      on_activate:   method(:search_result_activated),
+      on_search_all: method(:search_all),
+      on_stop_search: -> { search_button.active = false },
+    )
+  end
+
+  def search_entry_clamp
+    @search_entry_clamp ||= Adwaita::Clamp.new.tap do |clamp|
+      clamp.maximum_size = 425
+      clamp.child = search_entry.build
     end
   end
 
@@ -290,12 +310,55 @@ class Window < Adwaita::ApplicationWindow
       @bookmarks << Bookmark.new(@current_uri, 'help-about-symbolic', @current_uri)
       bookmark_popover.bookmarks = @bookmarks
       bookmark_popover.current_bookmark = current_bookmark
+      search_entry.results = bookmark_search_results
     end
 
     def bookmark_removed(bookmark)
       @bookmarks.delete(bookmark)
       bookmark_popover.bookmarks = @bookmarks
       bookmark_popover.current_bookmark = current_bookmark
+      search_entry.results = bookmark_search_results
+    end
+
+    # The search entry's candidate list — upstream's completion model draws
+    # from the backend's search index plus the YelpBookmarks interface
+    # (bookmarks and read-later entries); without a backend yet (see
+    # component-inventory.md) this port's candidates are the window's own
+    # bookmarks, which is real data, not a placeholder list.
+    def bookmark_search_results
+      @bookmarks.map do |bookmark|
+        SearchResult.new(
+          title: bookmark.title,
+          desc:  bookmark.page_id,
+          icon:  bookmark.icon,
+          page:  bookmark.page_id,
+          flags: SearchResult::FLAG_BOOKMARKED,
+        )
+      end
+    end
+
+    def set_search_mode(active)
+      if active
+        header_bar.title_widget = search_entry_clamp
+        search_entry.entry.grab_focus
+      else
+        header_bar.title_widget = header_title
+      end
+    end
+
+    def search_result_activated(result)
+      search_button.active = false
+      load_uri(result.page)
+    end
+
+    # Upstream's "Search for <query>" row runs the full-text search backend
+    # (yelp-storage's SQLite index) and shows its results as a page; without
+    # that backend (a separate porting track) this loads the query itself as
+    # the window's address, the same recovery `load_uri` every other address
+    # source in this window uses.
+    def search_all(query)
+      search_button.active = false
+      load_uri(query)
     end
 
     # The go-back/-forward actions are real actions with real enabled state —
