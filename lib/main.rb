@@ -3,6 +3,7 @@
 require 'gtk4'
 require 'adwaita'
 
+require_relative 'bookmark_row'
 require_relative 'settings'
 require_relative 'window'
 
@@ -61,7 +62,70 @@ class Application < Gtk::Application
     end
   end
 
+  def doc_settings = @doc_settings ||= Gio::Settings.new('org.gnome.yelp.documents')
+
+  # Ported from libyelp/yelp-bookmarks.c / .h's YelpBookmarksInterface, which
+  # yelp_application_iface_init installs onto YelpApplication in upstream —
+  # add_bookmark/remove_bookmark/is_bookmarked, backed here by the
+  # "bookmarks" key in org.gnome.yelp.documents (a(sss): page id, icon,
+  # title). Every open window is told when a document's stored bookmarks
+  # change, the way upstream's windows all watch the same "bookmarks-changed"
+  # signal yelp_application_update_bookmarks emits.
+  #
+  # Upstream keys a separate GSettings instance per document URI
+  # (application_get_doc_settings, a GKeyfileSettingsBackend per URI); gio2
+  # has no g_settings_new_full/with_path binding (see lib/settings.rb's
+  # header), so — exactly like lib/window.rb's "geometry" read — this port
+  # shares one fixed-path GSettings across every document instead. `doc_uri`
+  # is kept on every method below for parity with upstream's signatures even
+  # though it does not yet select which GSettings instance is read.
+  def add_bookmark(doc_uri, page_id, icon, title)
+    tuples = bookmark_tuples
+    if tuples.none? { |this_id, _, _| this_id == page_id }
+      write_bookmark_tuples(tuples + [[page_id, icon, title]])
+      notify_bookmarks_changed(doc_uri)
+    end
+  end
+
+  def remove_bookmark(doc_uri, page_id)
+    write_bookmark_tuples(bookmark_tuples.reject { |this_id, _, _| this_id == page_id })
+    notify_bookmarks_changed(doc_uri)
+  end
+
+  def bookmarked?(_doc_uri, page_id)
+    bookmark_tuples.any? { |this_id, _, _| this_id == page_id }
+  end
+
+  def bookmarks(_doc_uri)
+    bookmark_tuples.map { |page_id, icon, title| Bookmark.new(page_id, icon, title) }
+  end
+
   private
+
+    # The Ruby gio2 binding cannot build an `a(sss)` GVariant from a plain
+    # Ruby array (GLib::Variant.new raises NotImplementedError for
+    # tuple-typed container values), and Gio::Settings#set_value always
+    # rewraps its argument through that same unimplemented path, so
+    # bookmarks are written via GVariant text format (GLib::Variant.parse)
+    # through Gio::Settings#set_value_raw, which skips the rewrap. Reading
+    # back is unaffected — gio2 already converts an `a(sss)` GVariant to a
+    # plain Ruby array of 3-string arrays.
+    def bookmark_tuples = doc_settings.get_value('bookmarks')
+
+    def write_bookmark_tuples(tuples)
+      doc_settings.set_value_raw('bookmarks', bookmark_variant(tuples))
+    end
+
+    def bookmark_variant(tuples)
+      body = tuples.map { |a, b, c| "(#{variant_string(a)}, #{variant_string(b)}, #{variant_string(c)})" }.join(', ')
+      GLib::Variant.parse("[#{body}]", 'a(sss)')
+    end
+
+    def variant_string(value) = "'#{value.to_s.gsub('\\', '\\\\\\\\').gsub("'", "\\\\'")}'"
+
+    def notify_bookmarks_changed(doc_uri)
+      windows.each { |window| window.bookmarks_changed(doc_uri) }
+    end
 
     # Ported from yelp_application_startup, minus the parts of upstream's
     # startup that belong to backend porting tracks not written yet

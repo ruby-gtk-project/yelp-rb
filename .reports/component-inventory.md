@@ -20,7 +20,7 @@ registry, implements `YelpBookmarksInterface`.
 | `app.yelp-application-show-cursor` (GPropertyAction) | `yelp-application.c` | `lib/main.rb` | action | ✅ |
 | `app.yelp-application-larger-text` / `-smaller-text` / `-reset-text-size` | `yelp-application.c` | `lib/main.rb` | action | ✅ |
 | Navigation/window accelerators (`<Primary>N`, `<Primary>W`, `<Primary>L`, `<Primary>S`, `<Primary>F`, `<Alt>Left/Right`, back/forward mouse buttons via gesture, `F10`-less menu) | `yelp-application.c` (`gtk_application_set_accels_for_action` calls) | `lib/main.rb` `ACCELS` | shortcuts | ✅ |
-| `YelpBookmarksInterface` implementation (`yelp_application_iface_init`) | `libyelp/yelp-bookmarks.c/.h`, `yelp-application.c` | — | interface | ❌ — no document-keyed bookmark store exists yet (see Window note below); would need `lib/bookmarks.rb` or folding into `main.rb` once a document/view layer exists |
+| `YelpBookmarksInterface` implementation (`yelp_application_iface_init`) | `libyelp/yelp-bookmarks.c/.h`, `yelp-application.c` | `lib/main.rb` | interface | ⚠️ — `add_bookmark`/`remove_bookmark`/`bookmarked?`/`bookmarks` are ported onto `Application`, backed by the real `bookmarks` GSettings key, and every window is notified on change; there is still no document pipeline, so `doc_uri` and `page_id` are both the window's current address rather than a document URI and a page within it |
 | `windows_by_document` / per-document raise-existing-window | `yelp-application.c` | — | behavior | ❌ — not applicable without a document-loading pipeline; `Window`'s registry is `Gtk::Application#windows` only |
 | Font sensitivity on gsettings `org.gnome.desktop.interface` | `yelp-application.c` (`application_set_font_sensitivity`) | `lib/main.rb` | behavior | ✅ |
 
@@ -83,7 +83,7 @@ registry, implements `YelpBookmarksInterface`.
 | `Settings` singleton (zoom level, show-text-cursor) | `yelp-settings.c/.h` | `lib/settings.rb` | type (singleton) | ✅ |
 | `org.gnome.yelp` schema: `show-cursor` (b), `zoom-level` (d, 0.5–4.0) | `data/org.gnome.yelp.gschema.xml` | `lib/settings.rb` | GSettings schema | ✅ |
 | `org.gnome.yelp.documents` schema: `geometry` ((ii)) | `data/org.gnome.yelp.gschema.xml` | `lib/window.rb` | GSettings schema | ⚠️ — read on startup, not written back on resize (§2) |
-| `org.gnome.yelp.documents` schema: `bookmarks` (a(sss)) | `data/org.gnome.yelp.gschema.xml` | — | GSettings schema | ❌ — not read/written; `lib/window.rb`'s bookmarks are in-memory only (no document identity to key by yet) |
+| `org.gnome.yelp.documents` schema: `bookmarks` (a(sss)) | `data/org.gnome.yelp.gschema.xml` | `lib/main.rb` | GSettings schema | ✅ — read/written by `Application#add_bookmark`/`#remove_bookmark` via `GLib::Variant.parse` + `Gio::Settings#set_value_raw` (the Ruby binding cannot build an `a(sss)` GVariant from a plain array through `Gio::Settings#set_value`) |
 | `org.gnome.yelp.documents` schema: `readlater` (a(ss)) | `data/org.gnome.yelp.gschema.xml` | — | GSettings schema | ❌ — not referenced anywhere in `lib/`; no upstream C caller was found outside the schema itself in this survey and may be legacy/unused upstream too, but is unaccounted for either way |
 | Colour tokens from `Adw.StyleManager` (`YELP_SETTINGS_COLOR_BASE/TEXT`) | `yelp-settings.c` | — | behavior | ❌ — explicitly dropped per `lib/settings.rb`'s header; port styles via `lib/style.css` instead |
 | Font settings from `org.gnome.desktop.interface` | `yelp-settings.c` | `lib/settings.rb` | behavior | ✅ |

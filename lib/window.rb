@@ -25,18 +25,19 @@ require_relative 'yelp/rb/version'
 # are registered disabled, exactly as they would be with no page history yet.
 #
 # Upstream's bookmarks are per-document, read from `org.gnome.yelp.documents`
-# "bookmarks" keyed by document URI (see lib/settings.rb's note on why this
-# port's GSettings for that schema is not relocatable). Without a view there
-# is no document to key by, so this port's bookmarks are a single in-memory
-# list for the window's current address — a window-session scope rather than
-# upstream's "bookmarks survive restarts, per help document" one.
+# "bookmarks" keyed by document URI through the `Application`'s
+# `YelpBookmarksInterface` methods (`lib/main.rb`, ported from
+# libyelp/yelp-bookmarks.c and src/yelp-application.c). Without a view there
+# is no document URI distinct from the page itself, so this window passes
+# its own `@current_uri` as both; every `load_uri`, add or remove is
+# persisted, same as upstream, just without a document to distinguish from
+# the page addressed within it.
 class Window < Adwaita::ApplicationWindow
   DEFAULT_URI = 'help:gnome-help'
 
   def initialize(application)
     super(application)
     @current_uri = DEFAULT_URI
-    @bookmarks = []
     self.title = 'Help'
     width, height = doc_settings.get_value('geometry').to_a
     set_default_size(width, height)
@@ -58,6 +59,16 @@ class Window < Adwaita::ApplicationWindow
   def load_uri(uri)
     @current_uri = uri
     header_title.subtitle = uri
+    refresh_bookmarks
+  end
+
+  # Called by `Application#notify_bookmarks_changed` (this window's
+  # counterpart to upstream's `app_bookmarks_changed` handler for the
+  # application's "bookmarks-changed" signal) whenever any window adds or
+  # removes a bookmark. Every window shares the one GSettings-backed store,
+  # so there is no `doc_uri` to filter on yet — every window just refreshes.
+  def bookmarks_changed(_doc_uri)
+    refresh_bookmarks
   end
 
   def toolbar_view
@@ -151,7 +162,7 @@ class Window < Adwaita::ApplicationWindow
 
   def bookmark_popover
     @bookmark_popover ||= BookmarkPopover.new(
-      bookmarks:        @bookmarks,
+      bookmarks:        application.bookmarks(@current_uri),
       current_bookmark: current_bookmark,
       on_activate:      method(:bookmark_activated),
       on_add:           method(:bookmark_added),
@@ -299,23 +310,37 @@ class Window < Adwaita::ApplicationWindow
 
   private
 
-    def current_bookmark = @bookmarks.find { |bookmark| bookmark.page_id == @current_uri }
+    def current_bookmark
+      application.bookmarks(@current_uri).find { |bookmark| bookmark.page_id == @current_uri }
+    end
 
     def bookmark_activated(bookmark)
       bookmark_popover.popover.visible = false
       load_uri(bookmark.page_id)
     end
 
+    # Ported from `bookmark_added` in src/yelp-window.c: reads the current
+    # page's id/icon/title off the view and hands them to the application's
+    # `YelpBookmarksInterface#add_bookmark`. With no view yet, the page's
+    # "icon" and "title" are the same placeholders `content_status_page`
+    # shows for any unloaded page.
     def bookmark_added(*)
-      @bookmarks << Bookmark.new(@current_uri, 'help-about-symbolic', @current_uri)
-      bookmark_popover.bookmarks = @bookmarks
-      bookmark_popover.current_bookmark = current_bookmark
-      search_entry.results = bookmark_search_results
+      application.add_bookmark(@current_uri, @current_uri, 'help-about-symbolic', @current_uri)
+      refresh_bookmarks
     end
 
+    # Ported from `bookmark_removed` in src/yelp-window.c.
     def bookmark_removed(bookmark)
-      @bookmarks.delete(bookmark)
-      bookmark_popover.bookmarks = @bookmarks
+      application.remove_bookmark(@current_uri, bookmark.page_id)
+      refresh_bookmarks
+    end
+
+    # Ported from `window_set_bookmarks` / `window_set_bookmark_buttons` in
+    # src/yelp-window.c: rebuild the popover's list and add/remove button
+    # visibility from the application's stored bookmarks, and refresh the
+    # search entry's candidates to match.
+    def refresh_bookmarks
+      bookmark_popover.bookmarks = application.bookmarks(@current_uri)
       bookmark_popover.current_bookmark = current_bookmark
       search_entry.results = bookmark_search_results
     end
@@ -326,7 +351,7 @@ class Window < Adwaita::ApplicationWindow
     # component-inventory.md) this port's candidates are the window's own
     # bookmarks, which is real data, not a placeholder list.
     def bookmark_search_results
-      @bookmarks.map do |bookmark|
+      application.bookmarks(@current_uri).map do |bookmark|
         SearchResult.new(
           title: bookmark.title,
           desc:  bookmark.page_id,

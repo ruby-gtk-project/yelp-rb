@@ -162,7 +162,7 @@ GtkDriver.drive(Application.new, shots: 'tmp/shots') do |d, app|
 
   d.step('bookmark shows up') do
     window = app.windows.first
-    d.check('one bookmark') { window.instance_variable_get(:@bookmarks).size == 1 }
+    d.check('one bookmark') { window.application.bookmarks(window.current_uri).size == 1 }
     d.check('remove button now visible') { window.bookmark_popover.remove_button.visible? }
     d.check('add button now hidden') { !window.bookmark_popover.add_button.visible? }
     d.check('empty label hidden') { !window.bookmark_popover.empty_label.visible? }
@@ -171,14 +171,14 @@ GtkDriver.drive(Application.new, shots: 'tmp/shots') do |d, app|
 
   d.step('remove the bookmark from its row') do
     window = app.windows.first
-    bookmark = window.instance_variable_get(:@bookmarks).first
+    bookmark = window.application.bookmarks(window.current_uri).first
     window.bookmark_popover.list_box.get_row_at_index(0).remove_button.activate
     _ = bookmark
   end
 
   d.step('bookmark list empty again') do
     window = app.windows.first
-    d.check('no bookmarks left') { window.instance_variable_get(:@bookmarks).empty? }
+    d.check('no bookmarks left') { window.application.bookmarks(window.current_uri).empty? }
     d.check('add button visible again') { window.bookmark_popover.add_button.visible? }
     d.check('remove button hidden again') { !window.bookmark_popover.remove_button.visible? }
     d.check('empty label visible again') { window.bookmark_popover.empty_label.visible? }
@@ -303,13 +303,13 @@ GtkDriver.drive(Application.new, shots: 'tmp/shots') do |d, app|
 
   d.step('clean up the seeded bookmark') do
     window = app.windows.first
-    bookmark = window.instance_variable_get(:@bookmarks).first
+    bookmark = window.application.bookmarks(window.current_uri).first
     window.send(:bookmark_removed, bookmark)
   end
 
   d.step('bookmarks are empty again after cleanup') do
     window = app.windows.first
-    d.check('no bookmarks left') { window.instance_variable_get(:@bookmarks).empty? }
+    d.check('no bookmarks left') { window.application.bookmarks(window.current_uri).empty? }
   end
 
   d.step('open the About dialog from the window action') do
