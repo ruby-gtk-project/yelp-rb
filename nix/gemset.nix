@@ -75,16 +75,6 @@
     };
     version = "4.4.0";
   };
-  gem_kit = {
-    groups = ["default"];
-    platforms = [];
-    source = {
-      remotes = ["https://rubygems.org"];
-      sha256 = "0dx9w041lqzr4jd0m9as0v5v6n3fj2hcg74p2gyswr2y2a6zc5v9";
-      type = "gem";
-    };
-    version = "0.2.0";
-  };
   gio2 = {
     dependencies = ["fiddle" "gobject-introspection"];
     groups = ["default"];
@@ -222,16 +212,5 @@
       type = "gem";
     };
     version = "0.5.0";
-  };
-  webkit-web-process-extension = {
-    dependencies = ["gem_kit" "gobject-introspection"];
-    groups = ["default"];
-    platforms = [];
-    source = {
-      remotes = ["https://rubygems.org"];
-      sha256 = "01jcp1yz6iwk2p5rjj2grj3h620ykfz13rc60hgvvrljxrr86g9d";
-      type = "gem";
-    };
-    version = "1.0.1";
   };
 }

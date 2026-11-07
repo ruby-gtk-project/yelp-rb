@@ -18,7 +18,8 @@
 # own separate web-process executable, and a Ruby gem running in the
 # application process cannot be that .so. `WebProcessExtension#signal_connect`
 # attaches without error, but no WebPage is ever created in this process to
-# fire it. See yelp-rb.gemspec's dependency comment for the full note), so
+# fire it. Because of that, the gem is not declared in yelp-rb.gemspec at
+# all — see its dependency comment for the full note), so
 # `ErrorPage` stops at producing
 # the same HTML string upstream would load, from the same template asset
 # (lib/resources/error.html, carried over verbatim except for upstream's

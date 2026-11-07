@@ -25,9 +25,13 @@
           libadwaita
           harfbuzz
           librsvg
-          # webkit-web-process-extension's typelib — the WebView itself is
-          # also WebKitGTK, so this is the one WebKit package the stack needs.
-          webkitgtk_6_0
+          # NOTE: this list no longer carries webkitgtk_6_0. It was here only
+          # to provide the webkit-web-process-extension gem's typelib, and
+          # that gem is no longer declared in the gemspec (see its dependency
+          # comment there): the gem's own README confirms the API it binds is
+          # a shared library WebKit dlopens inside its own web process, so a
+          # Ruby gem in the application process can never be the thing that
+          # fires it. There is nothing here left to provide a typelib for.
         ]
         # The Ruby `pkg-config` gem resolves `Requires.private` transitively and
         # hard-fails if any .pc in the chain is missing, so gtk4's whole private

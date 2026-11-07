@@ -112,21 +112,22 @@ Gem::Specification.new do |spec|
   # Xmlb::Builder, ...) is used anywhere upstream, so the dependency was
   # removed rather than wired up to a feature that does not exist.
   #
-  # WebKitWebProcessExtension — the web-process-side API libyelp's
-  # web-process-extension (libyelp/web-process-extension/yelp-web-process-extension.c)
-  # binds to: upstream's meson.build depends on
-  # `webkitgtk-web-process-extension-6.0` for exactly this. The namespace
-  # loads (WebKitWebProcessExtension::WebProcessExtension, ::WebPage, ...),
-  # but per this gem's own README it cannot actually be *driven* from this
-  # process: the real extension is a shared library WebKit dlopens inside
-  # its own separate web-process executable, and a Ruby gem running in the
-  # application process cannot be that .so. `WebProcessExtension#signal_connect('page-created')`
-  # connects without error, but no WebPage is ever created in this process to
-  # fire it, so no lib/ code can call it to any effect. Kept declared
-  # because upstream genuinely has this feature; see
-  # lib/error_page.rb for where the port's web/view backend documents this
-  # same gap.
-  spec.add_dependency("webkit-web-process-extension")
+  # NOTE on webkit-web-process-extension: a prior pass kept this declared,
+  # reasoning that upstream genuinely has the feature
+  # (libyelp/web-process-extension/yelp-web-process-extension.c) even though
+  # nothing in lib/ required it. That reasoning does not hold up against
+  # this gem's own README: "this API is a shared library WebKit dlopens
+  # inside its own web process, and a Ruby gem in the application process
+  # cannot be one." `WebProcessExtension#signal_connect('page-created')`
+  # connects without error, but no WebPage is ever created in *this*
+  # process to fire it — there is no call site this gem could be given in
+  # lib/ that would run on a live path, only one that would require the
+  # gem and never be driven. A gemspec dependency with no corresponding
+  # `require` anywhere under lib/ is exactly the libxmlb mistake again, so
+  # it is removed for the same reason: declared but structurally unusable
+  # here. See lib/error_page.rb for where the port's web/view backend
+  # documents this same gap and what it does instead (produce the HTML a
+  # WebView would load, without a WebView to load it into).
 
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.
