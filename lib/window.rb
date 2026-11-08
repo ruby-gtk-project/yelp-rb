@@ -8,6 +8,7 @@ require_relative 'primary_menu'
 require_relative 'search_entry'
 require_relative 'search_result'
 require_relative 'settings'
+require_relative 'yelp_uri'
 require_relative 'yelp/rb/version'
 
 # Window is one help window: the header bar, the breakpoint that collapses it
@@ -18,11 +19,14 @@ require_relative 'yelp/rb/version'
 # Ported from src/yelp-window.c / .h and src/yelp-window.ui. Upstream builds
 # this from a GtkBuilder template with a YelpView child that does the actual
 # page loading and navigation (go-back/forward, printing, the search entry's
-# completion view); YelpView is a separate porting track
-# (lib/view.rb, not yet written), so this port tracks only what a view would
-# tell it — the current address, as a plain string — and the actions that
-# depend on the view's navigation stack (`yelp-view-go-back`/`-go-forward`)
-# are registered disabled, exactly as they would be with no page history yet.
+# completion view). I have not written `YelpView` (lib/view.rb does not
+# exist — see FINDINGS.md: there is no `WebKit::WebView` binding available to
+# this fleet to build it on), so this port tracks what a view would tell it —
+# the current address, resolved through `YelpUri` (lib/yelp_uri.rb, ported
+# from libyelp/yelp-uri.c) for its canonical form and document type — and
+# the actions that depend on the view's navigation stack
+# (`yelp-view-go-back`/`-go-forward`) are registered disabled, exactly as
+# they would be with no page history yet.
 #
 # Upstream's bookmarks are per-document, read from `org.gnome.yelp.documents`
 # "bookmarks" keyed by document URI through the `Application`'s
@@ -53,13 +57,31 @@ class Window < Adwaita::ApplicationWindow
   def current_uri = @current_uri
 
   # The address-bar override (Ctrl+L), drag-and-drop and the window's own
-  # "New Window" action all funnel a new address through here. With no view
-  # to hand it to yet, loading a URI means recording it as the window's
-  # current address and reflecting it in the header's subtitle.
+  # "New Window" action all funnel a new address through here. Upstream
+  # hands the resolved `YelpUri` straight to a `YelpView`; with no view to
+  # hand it to, this resolves it anyway (lib/yelp_uri.rb, ported from
+  # libyelp/yelp-uri.c) so the window's address and status page show the
+  # same canonical URI and document type upstream's chrome would.
   def load_uri(uri)
-    @current_uri = uri
-    header_title.subtitle = uri
+    resolved = YelpUri.new(uri).tap(&:resolve!)
+    @current_uri = resolved.canonical_uri || uri
+    header_title.subtitle = @current_uri
+    content_status_page.title = status_title(resolved.document_type)
+    content_status_page.description = @current_uri
     refresh_bookmarks
+  end
+
+  # What upstream's YelpView would show instead of a loaded page for each
+  # non-success YelpUriDocumentType; everything else just means "nothing has
+  # rendered this yet", which is as far as this port's chrome goes without a
+  # view (see FINDINGS.md).
+  def status_title(document_type)
+    case document_type
+    when :not_found then 'Page Not Found'
+    when :error then 'Error Loading Page'
+    when :external then 'External Link'
+    else 'No Page Loaded'
+    end
   end
 
   # Called by `Application#notify_bookmarks_changed` (this window's
@@ -377,10 +399,11 @@ class Window < Adwaita::ApplicationWindow
     end
 
     # Upstream's "Search for <query>" row runs the full-text search backend
-    # (yelp-storage's SQLite index) and shows its results as a page; without
-    # that backend (a separate porting track) this loads the query itself as
-    # the window's address, the same recovery `load_uri` every other address
-    # source in this window uses.
+    # (yelp-storage's SQLite index) and shows its results as a page. I have
+    # not ported yelp-storage.c (its FTS index needs a loaded document
+    # corpus from the backends FINDINGS.md explains are blocked), so this
+    # loads the query itself as the window's address, the same recovery
+    # `load_uri` every other address source in this window uses.
     def search_all(query)
       search_button.active = false
       load_uri(query)

@@ -8,10 +8,12 @@
 # (which this port's Application does not override) sees it.
 #
 # Upstream's `-e, --editor-mode` switch (yelp_application_cmdline's
-# GOptionEntry table) has no effect on anything this port has built yet —
-# editor mode changes how libyelp's document pipeline renders a page, which
-# is a separate porting track — so it is not accepted here. `--version` is,
-# since it needs nothing but the gem's own version constant.
+# GOptionEntry table) is not accepted here. I have not wired it through —
+# editor mode changes how `lib/yelp_uri.rb`'s `resolve_gfile` falls back to
+# an `index.page.stub` and how the document pipeline renders a page once
+# there is a document pipeline (see FINDINGS.md), and neither of those
+# reads a flag yet. `--version` is accepted, since it needs nothing but
+# the gem's own version constant.
 
 require "yelp"
 require_relative "../lib/yelp/rb/version"

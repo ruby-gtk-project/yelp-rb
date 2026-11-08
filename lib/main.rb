@@ -15,10 +15,14 @@ require_relative 'window'
 # struct additionally tracks `windows_by_document` (a GHashTable keyed by
 # document URI, so opening the same help document twice raises the existing
 # window instead of opening a second one) and a `docsettings` cache of
-# per-document GSettings objects; both exist to serve the document-loading
-# pipeline in libyelp, which is a separate porting track from this file's
-# window chrome, so this port's registry is the plain list `Gtk::Application`
-# already keeps (`windows`) rather than a hand-rolled duplicate.
+# per-document GSettings objects. I have not ported either: raising an
+# existing window needs a document URI to key on, which `lib/yelp_uri.rb`
+# (ported this round) can now resolve, but nothing yet calls it from here —
+# that wiring, and the per-document `GKeyfileSettingsBackend` cache
+# (gio2 has no `g_settings_new_full`/`with_path` binding; see `doc_settings`
+# below), are owed work, not done work. This port's registry is the plain
+# list `Gtk::Application` already keeps (`windows`) rather than a
+# hand-rolled duplicate.
 #
 # The `-e, --editor-mode` command-line switch from yelp_application_cmdline
 # lives in exe/yelp-rb, which is this file's counterpart for src/yelp.c.
@@ -127,10 +131,11 @@ class Application < Gtk::Application
       windows.each { |window| window.bookmarks_changed(doc_uri) }
     end
 
-    # Ported from yelp_application_startup, minus the parts of upstream's
-    # startup that belong to backend porting tracks not written yet
-    # (the per-document GKeyfileSettingsBackend, the YelpBookmarks DBus
-    # interface). Registering src/style.css as a Gtk::CssProvider is the
+    # Ported from yelp_application_startup. I have not ported the
+    # per-document `GKeyfileSettingsBackend` setup (see the class comment
+    # above) or registration of the YelpBookmarks D-Bus interface that
+    # upstream's startup also does here. Registering src/style.css as a
+    # Gtk::CssProvider is the
     # one piece of upstream's startup this port's chrome already depends
     # on: lib/window.rb applies the `yelp-find-frame` class it defines.
     # 600 is GTK_STYLE_PROVIDER_PRIORITY_APPLICATION; the Ruby bindings do

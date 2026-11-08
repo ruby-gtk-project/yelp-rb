@@ -23,11 +23,11 @@ require_relative 'search_result_row'
 # visible as upstream's flattened one.
 #
 # Upstream reaches into a `YelpView` (for the completion source and
-# `view.load_uri`) and a `YelpBookmarks` (for the bookmark markers); without
-# a view yet (lib/view.rb is a separate porting track — see
-# component-inventory.md) this port is handed its results and bookmark
-# lookup as plain injected data, and `on_activate` is however the caller
-# wants to load a page.
+# `view.load_uri`) and a `YelpBookmarks` (for the bookmark markers). I have
+# not ported `YelpView` (lib/view.rb does not exist; see FINDINGS.md for why
+# — there is no `WebKit::WebView` binding to build it on), so this port is
+# handed its results and bookmark lookup as plain injected data, and
+# `on_activate` is however the caller wants to load a page.
 class SearchEntry
   RESULT_LIMIT = 6
 
