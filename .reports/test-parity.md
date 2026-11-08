@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `ee532821` |
-| Port | `ruby` @ `1b049d42` |
+| Port | `ruby` @ `949a10d0` (prior pass: `1b049d42`) |
 | Upstream tests | 7 (6 standalone C test programs + 1 table-driven URI test with 10 fixtures, counted as its 10 cases below) |
 | Ported | 0 |
 | Gaps | 7 (16 cases, counting the URI fixtures individually) |
@@ -72,7 +72,7 @@ any of the 7 rows above.
 
 ## The runtime gate, read against this ledger
 
-The round's gate (69 checks, 0 failed, 12 components, `drive_ok: true`) is
+The round's gate (69 checks, 0 failed, 10 components, `drive_ok: true`; the prior round reported 12 components for the same 69 checks) is
 exactly `test/drive_window.rb`'s own count. It is not evidence of test parity
 with upstream — it is evidence that the port's own, self-selected surface
 works. Per this skill: **the port has inherited no safety net from upstream's

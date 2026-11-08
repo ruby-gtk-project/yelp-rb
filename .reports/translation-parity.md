@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `ee532821` |
-| Port | `ruby` @ `1b049d42` |
+| Port | `ruby` @ `949a10d0` (prior pass: `1b049d42`) |
 | Domain | `yelp` (unconfirmed — no port build file names a domain; taken from upstream's `.mo`/`gettext` package name) |
 | Upstream messages | 83 distinct `(msgctxt, msgid)` keys (census via `.claude/skills/translation-parity/scripts/msgid-census.sh`, excluding `po/`, 0 unresolved) |
 | Ported | 0 |

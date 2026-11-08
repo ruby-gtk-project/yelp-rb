@@ -3,23 +3,26 @@
 | | |
 |---|---|
 | Upstream | `origin/master` @ `ee532821` (the fork has no `main`; `origin/master` is the parent's default branch) |
-| Port | `ruby` @ `1b049d42` |
-| Supersedes | `.reports/component-inventory.md`, which predates the three most recent commits (search entry/completion popover, stylesheet, error page, and the window drive-script extension) and is now stale in its "Status" lines |
+| Port | `ruby` @ `949a10d0` |
+| Supersedes | `.reports/component-inventory.md`, which predates the four most recent commits (search entry/completion popover, stylesheet, error page, the window drive-script extension, and the `YelpBookmarksInterface` port) and is now stale in its "Status" lines |
 
-This is a refresh, not a rewrite: the per-file widget/CSS/signal tables in
+This is a second refresh: the per-file widget/CSS/signal tables in
 `.reports/component-inventory.md` are still accurate (nothing upstream was
-re-scanned differently). What changed is which port files exist. The
-corrected file-by-file status, current as of `1b049d42`:
+re-scanned differently). What changed since the prior refresh (`1b049d42`) is
+that `lib/main.rb`'s bookmark gap closed — `add_bookmark`/`remove_bookmark`/
+`bookmarked?`/`bookmarks` now persist to `org.gnome.yelp.documents bookmarks`
+instead of a `Window`-local in-memory array. The corrected file-by-file
+status, current as of `949a10d0`:
 
 | File | Lines | Status |
 |---|---:|---|
 | `lib/yelp.rb` | 3 | done — entry require |
-| `lib/main.rb` | 131 | present: `Gtk::Application`, 4 `app.yelp-application-*` actions + accelerators. Missing: window registry (`windows_by_document`), `--editor-mode`, per-document `GKeyfileSettingsBackend`, `YelpBookmarks` D-Bus interface |
+| `lib/main.rb` | 195 | present: `Gtk::Application`, 4 `app.yelp-application-*` actions + accelerators, and (new in `949a10d0`) `YelpBookmarksInterface` (`add_bookmark`/`remove_bookmark`/`bookmarked?`/`bookmarks`) backed by `org.gnome.yelp.documents bookmarks`, broadcasting to every open window. Missing: window registry (`windows_by_document`), `--editor-mode`, per-document `GKeyfileSettingsBackend` |
 | `lib/settings.rb` | 79 | present for `zoom-level`/`show-cursor`. Missing: font families/sizes from GNOME desktop settings, editor mode, XSLT colour/icon palette |
 | `lib/window.rb` | 364+ | present: chrome, breakpoint, header bar, title, back/forward (header+bottom), menu button, search toggle, bookmark menu button, find revealer/buttons, bottom action bar, `ctrll_entry` (Ctrl+L), `Gtk::DropTarget`, `Gtk::GestureClick` (mouse back/forward), `win.yelp-window-*` actions. Reads `org.gnome.yelp.documents geometry` on open but **never writes it back** (no resize/close handler persisting new geometry). **No `YelpView`/`WebKit.WebView` in the view overlay at all** — the central component of the app is simply absent; the overlay holds only the find bar. |
 | `lib/primary_menu.rb` | 135 | done — menu model + zoom-controls box |
 | `lib/about_dialog.rb` | 34 | done, fields match upstream; no `_()` marking |
-| `lib/bookmark_popover.rb` | 127 | present; list/add/remove wired to an in-memory `@bookmarks` array in `Window`, not to the `org.gnome.yelp.documents bookmarks` GSettings key — bookmarks do not survive a restart |
+| `lib/bookmark_popover.rb` | 127 | present; list/add/remove now wired (since `949a10d0`) to `Application#add_bookmark`/`#remove_bookmark`/`#bookmarks`, which persist to the `org.gnome.yelp.documents bookmarks` GSettings key — bookmarks survive a restart |
 | `lib/bookmark_row.rb` | 58 | done |
 | `lib/search_result.rb` | 55 | done — plain model |
 | `lib/search_entry.rb` | 252 | **new since the stale report.** Entry + completion popover + filter/slice model stack + standing "search for" row. Drops upstream's `Gtk::FlattenListModel` concatenation (acknowledged in the file's own header comment) in favour of a separate standing row — a real design substitution, not a gap, and it is the one place in this port where the comment correctly states a reason that survives scrutiny (a real Ruby-bindings constraint on mixed-type `Gio::ListStore`s) rather than waving off a feature. Reaches into no `YelpView`/`YelpBookmarks`, by construction, since neither exists. |
@@ -38,7 +41,6 @@ corrected file-by-file status, current as of `1b049d42`:
 - Window registry (one window per document URI, raising the existing one)
 - `--editor-mode`
 - `GKeyfileSettingsBackend` for per-document settings
-- `YelpBookmarks` D-Bus interface and `bookmarks-changed` signal (bookmarks are a plain in-memory array on `Window`, not backed by `org.gnome.yelp.documents`)
 - Geometry *persistence* (read-only, one-way)
 - Status icons (12 assets)
 
@@ -55,6 +57,6 @@ checks passed / DRIVE OK`).
 It covers **zero** of: the document pipeline, URI parsing, the WebView, the
 context menu, printing, translation, window-registry/editor-mode/per-document
 settings, geometry write-back, or the status icons — because none of those
-exist to drive. "12 components, 0 failed" describes the fraction of the app
+exist to drive. "10 components, 0 failed" (this round; the prior round reported 12) describes the fraction of the app
 that was built, not the app. Per the accountability-ensurance finding below,
 this is not stated anywhere in the port's own files.

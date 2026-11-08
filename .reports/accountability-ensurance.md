@@ -1,8 +1,43 @@
 # Accountability ensurance — yelp-rb
 
-Scanned: `lib/`, `exe/`, `.reports/` (including this round's new
+Scanned: `lib/`, `exe/`, `.reports/` (including this round's refreshed
 component-identification/component-parity/test-parity/translation-parity
-documents), and the repo root for `PORTING.md`/`FINDINGS.md` (neither exists).
+documents), and the repo root for `PORTING.md`/`FINDINGS.md` (neither exists,
+same as the prior round).
+
+Port @ `949a10d0` (prior round's accountability pass was at `1b049d42`, five
+commits ago).
+
+## Carried-over debt: last round's "Action owed" was not acted on
+
+The prior revision of this report (below) ended with two concrete,
+unconditional action items: rewrite the five "separate porting track" sites,
+and create `FINDINGS.md` to hold the one legitimate binding-limitation note.
+Five commits have landed since (`38e33596`, `8269844e`, `d320f763`,
+`893fda4a`, `949a10d0`) and neither item was done:
+
+- `FINDINGS.md` still does not exist anywhere in the repo.
+- The phrase "separate porting track" still appears, unchanged in substance,
+  at `lib/main.rb:19,34`, `exe/yelp-rb:13`, `lib/window.rb:21,381`,
+  `lib/search_entry.rb:27`, `lib/error_page.rb:13` (re-grepped for this
+  round: 7 hits across 5 files; `lib/window.rb`'s second site shifted from
+  line 356 to 381 because the bookmarks commit added lines above it, but the
+  sentence itself is untouched).
+- What *did* land this round — the `YelpBookmarksInterface` port
+  (`949a10d0`) — is a real fix, not an excuse, and is recorded as such in the
+  updated `component-parity.md`/`component-identification.md`. It is good
+  evidence the team can act on a named gap when one is logged. It did not
+  touch the WebView gap, which is the one this report's prior revision
+  marked most severe.
+
+This is itself a finding: an audit's named, unconditional action items that
+go unactioned for five commits in a row are the accountability failure this
+skill exists to catch, one level up from the port's own code. Recorded here
+rather than silently re-issuing the same two items as if for the first time.
+
+---
+
+## Prior round's findings (re-verified, below, unchanged except as noted above)
 
 `.claude/skills/accountability-ensurance/scripts/find-excuses.sh .` flagged
 one hit by pattern; reading the surrounding files by hand found four more the
@@ -78,7 +113,7 @@ reason, and that reason is never a constraint):
 
 ### 3. The runtime gate's own framing — a false-green risk, not yet a false claim
 
-The round's gate reports "69 checks passed, 0 failed, covering 12 components"
+The round's gate reports "69 checks passed, 0 failed, covering 10 components" (this round; the prior round's gate reported 12)
 and that number is true and re-verified in this audit
 (`nix develop --command xvfb-run -a ruby test/drive_window.rb` →
 `69 of 69 checks passed / DRIVE OK`). Nothing in the port's own files
