@@ -96,42 +96,10 @@ Gem::Specification.new do |spec|
   spec.executables = ["yelp-rb"]
   spec.require_paths = ["lib"]
 
-  # Runtime toolkit. The gemspec had no runtime dependencies declared at all,
-  # which meant `gem install yelp-rb` produced an app that could not load its
-  # own toolkit.
-  spec.add_dependency("gtk4")
   spec.add_dependency("adwaita")
-  spec.add_dependency("glib2")
-  # gio2: lib/settings.rb requires it directly for Gio::Settings. It comes
-  # in transitively through gtk4 regardless, but it is a binding this port's
-  # own code calls by name, so it is declared rather than left implicit.
   spec.add_dependency("gio2")
-  # NOTE on libxmlb: a prior pass declared `libxmlb` here with a comment
-  # claiming libyelp's document backends compile Mallard/AppStream metadata
-  # into Xmlb's binary blob format. That is false: upstream's meson.build
-  # depends on libxml-2.0 and libxslt (plain-text XML + XSLT, the actual
-  # Mallard/DocBook pipeline), never on libxmlb, and `git grep -i xmlb` over
-  # upstream turns up nothing but an unrelated `xmlChar *xmlbuf` variable
-  # name in yelp-info-parser.c. No namespace this gem binds (Xmlb::Silo,
-  # Xmlb::Builder, ...) is used anywhere upstream, so the dependency was
-  # removed rather than wired up to a feature that does not exist.
-  #
-  # NOTE on webkit-web-process-extension: a prior pass kept this declared,
-  # reasoning that upstream genuinely has the feature
-  # (libyelp/web-process-extension/yelp-web-process-extension.c) even though
-  # nothing in lib/ required it. That reasoning does not hold up against
-  # this gem's own README: "this API is a shared library WebKit dlopens
-  # inside its own web process, and a Ruby gem in the application process
-  # cannot be one." `WebProcessExtension#signal_connect('page-created')`
-  # connects without error, but no WebPage is ever created in *this*
-  # process to fire it — there is no call site this gem could be given in
-  # lib/ that would run on a live path, only one that would require the
-  # gem and never be driven. A gemspec dependency with no corresponding
-  # `require` anywhere under lib/ is exactly the libxmlb mistake again, so
-  # it is removed for the same reason: declared but structurally unusable
-  # here. See lib/error_page.rb for where the port's web/view backend
-  # documents this same gap and what it does instead (produce the HTML a
-  # WebView would load, without a WebView to load it into).
+  spec.add_dependency("glib2")
+  spec.add_dependency("gtk4")
 
   # NOTE: It is preferable to list development dependencies in the gemspec due to increased
   #       visibility and discoverability.
